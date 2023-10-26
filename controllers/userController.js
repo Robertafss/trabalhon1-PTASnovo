@@ -1,13 +1,15 @@
 const User = require('../models/User');
 const secret = require('../config/auth.json');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const createUser = async (req, res) => {
     const {name,email,password } = req.body;
+    const novaSenha = await bcrypt.hash (password, 10)
     await User.create({
        name:name,
        email:email,
-       password:password
+       password:novaSenha
     }).then(() => {
         res.json('Usuario criado ');
         console.log('Usuario criado');
@@ -65,29 +67,30 @@ const updateUser = async (req, res) => {
 }
 
 const authenticatedUser = async (req, res) => {
-    const {name,email,password} = req.body;
+    const {password,email} = req.body;
     try {
         const isUserAuthenticated = await User.findOne({
             where: {
-                name:name,
-                email:email,
-                password:password
+                email:email
             }
         })
-        const token = jwt.sign({
-            name:isUserAuthenticated.name,
-            email:isUserAuthenticated.email,
-            password:isUserAuthenticated.password
-        },
+        const compare = await bcrypt.compare(password, isUserAuthenticated.password);
+        if( compare){
+            const token = jwt.sign({
+                email:isUserAuthenticated.email
+            },
             secret.secret, {
             expiresIn: 86400,
         })
         return res.json({
-            name: isUserAuthenticated.name,
             email: isUserAuthenticated.email,
             password:isUserAuthenticated.password,
             token: token
         });
+        
+    } else{
+        res.json("Erro na comparacao")
+    }
     } catch (error) {
         return res.json("Erro na autenticação do usuário");
     }
